@@ -12,10 +12,15 @@ token_map = [
 ]
 
 def tokenize(text):
-    print(text)
+    index = 1
+    length = len(text)
+    line = 1
+    tokens = []
 
-    while (
+    while (index < length):
+        index += 1
 
+    return tokens
 
 def test_digits():
     print("test tokenize digits")
