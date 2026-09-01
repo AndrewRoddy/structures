@@ -41,20 +41,19 @@ Takes in two command line arguments with the second argument being the file pass
 If the second command line argument ends with `.t`, then read it, if it does not assume that this is the argument.
 
 Run `tokenize(expression)`, `parse(tokens)`, `evaluate(ast)`, then print the result.
-
 ### Tokenizer.py
-Includes a list of patterns.
 
-patterns = [
-    (r"\s+", "whitespace"),
-    (r"\d+", "number"),
-    (r"\+", "+"),
-    (r"\-", "-"),
-    (r"\/", "/"),
-    (r"\*", "*"),
-    (r"\(", "("),
-    (r"\)", ")"),
-    (r".", "error"),
+Includes a token map
+token_map = [
+    (r"\+"  , "+"         ),
+    (r"\-"  , "-"         ),
+    (r"\/"  , "/"         ),
+    (r"\*"  , "*"         ),
+    (r"\("  , "("         ),
+    (r"\)"  , ")"         ),
+    (r"\d+" , "number"    ),
+    (r"\s+" , "whitespace"),
+    (r"."   , "error"     )
 ]
 
 Compiles this list of patterns into a tag and pattern combo using `re.compile`.

@@ -1,3 +1,4 @@
+import re
 
 token_map = [
     (r"\+"  , "+"         ),
@@ -7,18 +8,69 @@ token_map = [
     (r"\("  , "("         ),
     (r"\)"  , ")"         ),
     (r"\d+" , "number"    ),
-    (r"\s+" , "whitespace"),
+    (r"\s+" , "space"),
     (r"."   , "error"     )
 ]
 
-def tokenize(text):
-    index = 1
-    length = len(text)
-    line = 1
-    tokens = []
+# Compiles the regular expressions
+patterns = []
+for pattern, tag in token_map:
+    compiled = re.compile(pattern)
+    patterns.append((compiled, tag))
 
+def tokenize(text):
+    index = 0
+    row = column = 1
+    length = len(text)
+    selected_tag = None
+
+    tokens = []
     while (index < length):
-        index += 1
+
+        # Iterates through all patterns
+        # Checks each character in the text in order for matching with patterns list
+        for pattern, tag in patterns:
+            match = pattern.match(text, index)
+            if match:
+                selected_tag = tag
+                break
+
+        data  = match.group(0) # Gets data at tag position
+        index = match.end() # Resume matching at the next token
+
+        # Raises exception if error found
+        if selected_tag == "error":
+            raise Exception(f"Unexpected character: {data!r}")
+
+        if selected_tag != "space":
+            token = {
+                "tag"   : selected_tag,
+                "line"  : row,
+                "column": column
+            }
+
+            # Adds value if token is a number
+            if selected_tag == "number":
+                token["value"] = int(data)
+
+            tokens.append(token)
+
+        # Moves row/column
+        for character in data:
+            column += 1
+
+            # If the character is a newline
+            # Increases row and sets column back to 1
+            if character == "\n":
+                row    += 1
+                column  = 1
+
+    # Adds in final token
+    tokens.append({
+        "tag":    None,
+        "line":   row,
+        "column": column
+    })
 
     return tokens
 
