@@ -1,5 +1,5 @@
 import sys
-print(sys.argv)
+from tokenizer import tokenize
 
 def main():
 
@@ -16,6 +16,8 @@ def main():
     # Iterates each character in the text
     for char in text:
         print("|" + char + "|")
+
+    tokenize()
 
 if __name__ == "__main__":
     main()
