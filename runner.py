@@ -5,7 +5,7 @@ def main():
 
     # Checks if the correct number of command line argument exists
     if len(sys.argv) != 2:
-        print(f"Needs two system arguments.\n1: The program name\n2: The input file\nGiven: {sys.argv}")
+        raise Exception(f"Needs two system arguments.\n1: The program name\n2: The input file\nGiven: {sys.argv}")
         return
 
     input_file = sys.argv[1] # Gets input file
