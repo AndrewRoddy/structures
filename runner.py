@@ -13,11 +13,7 @@ def main():
     text = file.read().strip() # Reads file and removes newlines
     file.close() # Closes the file
 
-    # Iterates each character in the text
-    for char in text:
-        print("|" + char + "|")
-
-    tokenize()
+    tokenize(text)
 
 if __name__ == "__main__":
     main()

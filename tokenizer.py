@@ -1,15 +1,15 @@
 import re
 
 token_map = [
-    (r"\+"  , "+"         ),
-    (r"\-"  , "-"         ),
-    (r"\/"  , "/"         ),
-    (r"\*"  , "*"         ),
-    (r"\("  , "("         ),
-    (r"\)"  , ")"         ),
-    (r"\d+" , "number"    ),
-    (r"\s+" , "space"),
-    (r"."   , "error"     )
+    (r"\s+", "whitespace"),
+    (r"\d*\.\d+|\d+\.\d*|\d+", "number"),
+    (r"\+", "+"     ),
+    (r"\-", "-"     ),
+    (r"\/", "/"     ),
+    (r"\*", "*"     ),
+    (r"\(", "("     ),
+    (r"\)", ")"     ),
+    (r"." , "error" )
 ]
 
 # Compiles the regular expressions
@@ -42,7 +42,7 @@ def tokenize(text):
         if selected_tag == "error":
             raise Exception(f"Unexpected character: {data!r}")
 
-        if selected_tag != "space":
+        if selected_tag != "whitespace":
             token = {
                 "tag"   : selected_tag,
                 "line"  : row,
