@@ -1,30 +1,20 @@
 import re
 
 token_map = [
-<<<<<<< HEAD
     (r"\s+", "whitespace"),
     (r"\d*\.\d+|\d+\.\d*|\d+", "number"),
-    (r"\+", "+"     ),
-    (r"\-", "-"     ),
-    (r"\/", "/"     ),
-    (r"\*", "*"     ),
-    (r"\(", "("     ),
-    (r"\)", ")"     ),
-    (r"." , "error" )
-=======
     (r"\+"  , "+"         ),
     (r"\-"  , "-"         ),
     (r"\/"  , "/"         ),
     (r"\*"  , "*"         ),
     (r"\("  , "("         ),
     (r"\)"  , ")"         ),
-    (r"\d+" , "number"    ),
-    (r"\s+" , "space"),
     (r"."   , "error"     )
->>>>>>> aa33522f369adaad8b8dbb47d49ac97057927d4b
 ]
 
 # Compiles the regular expressions
+# original solution:
+# patterns = [(re.compile(p), tag) for p, tag in token_map]
 patterns = []
 for pattern, tag in token_map:
     compiled = re.compile(pattern)
@@ -54,11 +44,7 @@ def tokenize(text):
         if selected_tag == "error":
             raise Exception(f"Unexpected character: {data!r}")
 
-<<<<<<< HEAD
         if selected_tag != "whitespace":
-=======
-        if selected_tag != "space":
->>>>>>> aa33522f369adaad8b8dbb47d49ac97057927d4b
             token = {
                 "tag"   : selected_tag,
                 "line"  : row,
@@ -66,8 +52,12 @@ def tokenize(text):
             }
 
             # Adds value if token is a number
+            # Supports integers and floats
             if selected_tag == "number":
-                token["value"] = int(data)
+                if "." in value:
+                    token["value"] = float(data)
+                else:
+                    token["value"] = int(value)
 
             tokens.append(token)
 
