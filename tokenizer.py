@@ -2,14 +2,36 @@ import re
 
 token_map = [
     (r"\s+", "whitespace"),
+
+    # Comment
+    (r"//[^\r\n]*", "comment"),
+
+    # Strings
+    (r'"(?:\\[^\r\n]|[^"\\\r\n])*"', "string"),
+
+    # Numbers
     (r"\d*\.\d+|\d+\.\d*|\d+", "number"),
-    (r"\+"  , "+"         ),
-    (r"\-"  , "-"         ),
-    (r"\/"  , "/"         ),
-    (r"\*"  , "*"         ),
-    (r"\("  , "("         ),
-    (r"\)"  , ")"         ),
-    (r"."   , "error"     )
+    
+    (r"\+", "+"),
+    (r"\-", "-"),
+    (r"\/", "/"),
+    (r"\*", "*"),
+    (r"\(", "("),
+    (r"\)", ")"),
+    (r"\=", "="),
+    (r"\;", ";"),
+    (r"print\b", "print"),
+
+    # Input
+    (r"input\b", "input"),
+    (r"number\b", "number_conversion"),
+    (r"string\b", "string_conversion"),
+
+    # Handles everything else
+    (r"[a-zA-Z_][\w]*", "identifier"),
+
+    # Handles errors
+    (r"." , "error"),
 ]
 
 # Compiles the regular expressions
@@ -20,120 +42,222 @@ for pattern, tag in token_map:
     compiled = re.compile(pattern)
     patterns.append((compiled, tag))
 
-def tokenize(text):
-    index = 0
-    row = column = 1
-    length = len(text)
-    selected_tag = None
+def decode_string(text, line, column):
+    escapes = {
+        "n": "\n", 
+        "t": "\t", 
+        "r": "\r",
+        '"': '"',
+        "\\": "\\"
+    }
 
+    result = ""
+    position = 1
+    while position < len(text) - 1:
+        character = text[position]
+        if character == "\\":
+            position += 1
+            character = text[position]
+            if character not in escapes:
+                raise SyntaxError(
+                    f"Unknown escape \\{character} at line {line}, "
+                    f"column {column + position - 1}"
+                )
+            character = escapes[character]
+        result += character
+        position += 1
+    return result
+
+def tokenize(characters):
+    "Tokenize a string using the patterns above"
     tokens = []
-    while (index < length):
+    position = 0
+    line = 1
+    column = 1
 
-        # Iterates through all patterns
-        # Checks each character in the text in order for matching with patterns list
+    while position < len(characters):
+        match = None
+        current_tag = None
         for pattern, tag in patterns:
-            match = pattern.match(text, index)
+            match = pattern.match(characters, position)
             if match:
-                selected_tag = tag
+                current_tag = tag
                 break
+        assert match is not None
+        value = match.group(0)
 
-        data  = match.group(0) # Gets data at tag position
-        index = match.end() # Resume matching at the next token
+        if current_tag == "error":
+            raise SyntaxError(f"Unexpected character: {value!r}")
 
-        # Raises exception if error found
-        if selected_tag == "error":
-            raise Exception(f"Unexpected character: {data!r}")
-
-        if selected_tag != "whitespace":
-            token = {
-                "tag"   : selected_tag,
-                "line"  : row,
-                "column": column
-            }
-
-            # Adds value if token is a number
-            # Supports integers and floats
-            if selected_tag == "number":
-                if "." in value:
-                    token["value"] = float(data)
-                else:
-                    token["value"] = int(value)
-
+        if current_tag not in ("whitespace", "comment"):
+            token = {"tag": current_tag, "line": line, "column": column}
+            if current_tag == "number":
+                token["value"] = float(value) if "." in value else int(value)
+            elif current_tag == "string":
+                token["value"] = decode_string(value, line, column)
+            elif current_tag == "identifier":
+                token["value"] = value
             tokens.append(token)
 
-        # Moves row/column
-        for character in data:
-            column += 1
-
-            # If the character is a newline
-            # Increases row and sets column back to 1
+        for character in value:
             if character == "\n":
-                row    += 1
-                column  = 1
+                line += 1
+                column = 1
+            else:
+                column += 1
+        position = match.end()
 
-    # Adds in final token
-    tokens.append({
-        "tag":    None,
-        "line":   row,
-        "column": column
-    })
-
+    tokens.append({"tag": None, "line": line, "column": column})
     return tokens
+
 
 def test_digits():
     print("test tokenize digits")
-    t = tokenize("123")
-    assert t[0]["tag"] == "number"
-    assert t[0]["value"] == 123
-    assert t[1]["tag"] is None
-    t = tokenize("1")
-    assert t[0]["tag"] == "number"
-    assert t[0]["value"] == 1
-    assert t[1]["tag"] is None
+    tokens = tokenize("123")
+    assert tokens[0]["tag"] == "number"
+    assert tokens[0]["value"] == 123
+    assert tokens[1]["tag"] is None
+
+
+def test_floats():
+    print("test tokenize floats")
+    for text, expected in [("1.5", 1.5), (".5", 0.5), ("5.", 5.0)]:
+        tokens = tokenize(text)
+        assert tokens[0]["tag"] == "number"
+        assert tokens[0]["value"] == expected
+        assert tokens[1]["tag"] is None
+
+
+def test_strings():
+    # ===== CHAPTER 3 TESTS =====
+    print("test tokenize strings")
+    tokens = tokenize(r'"hello" "line\nfeed" "say \"hello\""')
+    assert [token["tag"] for token in tokens] == [
+        "string",
+        "string",
+        "string",
+        None,
+    ]
+    assert tokens[0]["value"] == "hello"
+    assert tokens[1]["value"] == "line\nfeed"
+    assert tokens[2]["value"] == 'say "hello"'
+
+
+def test_string_escapes():
+    print("test string escapes")
+    for source, expected in [
+        ('""', ""),
+        (r'"\n\t\r\"\\"', '\n\t\r"\\'),
+        (r'"\\n"', "\\n"),
+        (r'"ends\\"', "ends\\"),
+        ('"plain text"', "plain text"),
+    ]:
+        assert tokenize(source)[0]["value"] == expected
+
+    for escape in [r"\q", r"\x41", r"\u0041", r"\101", r"\b", r"\'"]:
+        try:
+            tokenize('\n  "' + escape + '"')
+        except SyntaxError as error:
+            assert "Unknown escape" in str(error)
+            assert "line 2, column 4" in str(error)
+        else:
+            raise AssertionError(f"Accepted unsupported escape: {escape}")
+
+    for source in ['"a\nb"', '"a\rb"', '"a\r\nb"', '"a\\\nb"', '"a\\\rb"', '"ends\\"']:
+        try:
+            tokenize(source)
+        except SyntaxError:
+            pass
+        else:
+            raise AssertionError(f"Accepted malformed string: {source!r}")
+
+    tokens = tokenize(r'"\n" next')
+    assert tokens[1]["line"] == 1
+    assert tokens[1]["column"] == 6
 
 
 def test_operators():
     print("test tokenize operators")
-    t = tokenize("+ - * / ( )")
-    tags = [token["tag"] for token in t]
-    assert tags == ["+", "-", "*", "/", "(", ")", None]
+    tokens = tokenize("+ - * / ( ) = ;")
+    tags = [token["tag"] for token in tokens]
+    assert tags == ["+", "-", "*", "/", "(", ")", "=", ";", None]
+
+
+def test_keywords():
+    print("test tokenize keywords")
+    tokens = tokenize("print input printer input_value")
+    tags = [token["tag"] for token in tokens]
+    assert tags == ["print", "input", "identifier", "identifier", None]
+    assert tokens[2]["value"] == "printer"
+    assert tokens[3]["value"] == "input_value"
+
+
+def test_identifiers():
+    print("test tokenize identifiers")
+    tokens = tokenize("foo bar baz")
+    tags = [token["tag"] for token in tokens]
+    assert tags == ["identifier", "identifier", "identifier", None]
+    assert tokens[0]["value"] == "foo"
+    assert tokens[2]["value"] == "baz"
 
 
 def test_expressions():
     print("test tokenize expressions")
-    t = tokenize("1+222*3")
-    assert t[0]["tag"] == "number" and t[0]["value"] == 1
-    assert t[1]["tag"] == "+"
-    assert t[2]["tag"] == "number" and t[2]["value"] == 222
-    assert t[3]["tag"] == "*"
-    assert t[4]["tag"] == "number" and t[4]["value"] == 3
-    assert t[5]["tag"] is None
+    tokens = tokenize('"dog"*2+"!"')
+    assert [token["tag"] for token in tokens] == [
+        "string",
+        "*",
+        "number",
+        "+",
+        "string",
+        None,
+    ]
 
 
 def test_whitespace():
     print("test tokenize whitespace")
-    t = tokenize("1 +\t2  \n*    3")
-    assert t[0]["tag"] == "number" and t[0]["value"] == 1
-    assert t[1]["tag"] == "+"
-    assert t[2]["tag"] == "number" and t[2]["value"] == 2
-    assert t[3]["tag"] == "*"
-    assert t[4]["tag"] == "number" and t[4]["value"] == 3
-    assert t[5]["tag"] is None
+    tokens = tokenize("1 +\t2  \n*    3")
+    assert [token["tag"] for token in tokens] == [
+        "number",
+        "+",
+        "number",
+        "*",
+        "number",
+        None,
+    ]
 
 
 def test_error():
     print("test tokenize error")
     try:
-        tokenize("1@@@ +\t2  \n*    3")
-    except Exception as e:
-        assert str(e) == "Unexpected character: '@'"
-        return
-    raise Exception("Error did not happen.")
+        tokenize("1@@@")
+    except SyntaxError as error:
+        assert str(error) == "Unexpected character: '@'"
+    else:
+        raise Exception("Expected SyntaxError")
+
+
+def test_unterminated_string():
+    # ===== CHAPTER 3 TEST =====
+    print("test unterminated string")
+    try:
+        tokenize('"never closed')
+    except SyntaxError as error:
+        assert str(error) == "Unexpected character: '\"'"
+    else:
+        raise Exception("Expected SyntaxError")
 
 
 if __name__ == "__main__":
     test_digits()
+    test_floats()
+    test_strings()
+    test_string_escapes()
     test_operators()
+    test_keywords()
     test_expressions()
+    test_identifiers()
     test_whitespace()
     test_error()
+    test_unterminated_string()
+    print("done.")
